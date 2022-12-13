@@ -1,0 +1,296 @@
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+        }
+        
+        img {
+            height: 100px;
+        }
+        
+        .class_1 {
+            border: red solid 1px;
+        }
+        
+        .class_2 {
+            border: blue solid 1px;
+        }
+        
+        table,
+        th,
+        td {
+            border: 1px solid;
+            padding: 3px;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" integrity="sha512-SGWgwwRA8xZgEoKiex3UubkSkV1zSE1BS6O4pXcaxcNtUlQsOmOmhVnDwIvqGRfEmuz83tIGL13cXMZn6upPyg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <h2>Unofficial Teachable Machine "Kaggle Competition" Grader</h2>
+        <p></p>
+
+        <p>1. Upload CSV</p>
+        <input id="csv" type="file" accept=".csv" />
+
+        <p>2. Class 1</p>
+        <input id="class_1" type="file" multiple accept="image/*" />
+        <br>
+        <span v-for="image in class_1_images">
+            <img class="class_1" v-bind:src="image.image">
+            {{image.prediction}}
+        </span>
+
+
+
+        <p>3. Class 2</p>
+        <input id="class_2" type="file" multiple accept="image/*" />
+        <br>
+        <span v-for="image in class_2_images">
+            <img class="class_2" v-bind:src="image.image">
+            {{image.prediction}}
+        </span>
+
+        <br>
+        <h3 v-if="inspecting_model"> Inspecting {{inspecting_model.name}}'s model</h3>
+
+
+        <p>4. Grade models</p>
+        <button type="button" onclick="grade_models()">GRADE MODELS</button>
+
+        <br><br>
+
+        <!-- <div id="webcam-container"></div> -->
+        <!-- <div id="label-container"></div> -->
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Model URL</th>
+                <th>Accuracy</th>
+            </tr>
+            <tr v-for="model in models">
+                <td>{{model.name}}</td>
+                <td>{{model.model}}</td>
+                <td>{{model.accuracy}}</td>
+                <td v-if="model.accuracy != null"><button v-on:click="inspect_model(model)">inspect</button></td>
+            </tr>
+        </table>
+
+    </div>
+</body>
+
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            inspecting_model: null,
+            models: [],
+            class_1_images: [],
+            class_2_images: []
+        },
+        methods: {
+            inspect_model: function(model) {
+                console.log(model.model)
+                inspect_model_images(model.model)
+                this.inspecting_model = model
+
+
+
+            }
+        }
+    });
+
+
+
+
+
+    const fileSelector = document.getElementById('class_1');
+    fileSelector.addEventListener('change', (event) => {
+        const fileList = event.target.files;
+        console.log(fileList);
+        Array.from(fileList).forEach(element => {
+            console.log(element)
+            app.class_1_images.push({
+                image: window.URL.createObjectURL(element),
+                prediction: null
+            })
+        });
+    });
+
+
+    const fileSelector3 = document.getElementById('class_2');
+    fileSelector3.addEventListener('change', (event) => {
+        const fileList = event.target.files;
+        console.log(fileList);
+        Array.from(fileList).forEach(element => {
+            console.log(element)
+            app.class_2_images.push({
+                image: window.URL.createObjectURL(element),
+                prediction: null
+            })
+        });
+    });
+
+
+    const fileSelector2 = document.getElementById('csv');
+    fileSelector2.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        console.log(file);
+
+        const reader = new FileReader()
+        reader.onload = function(event) {
+            app.models = Papa.parse(event.target.result, config = {
+                header: true
+            }).data
+
+            console.log(Papa.parse(event.target.result, config = {
+                header: true
+            }))
+
+            console.log(app.models)
+
+        }
+        reader.readAsText(file)
+    });
+
+
+
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    // const URL = "https://teachablemachine.withgoogle.com/models/F90wNb2G9/";
+
+    // let model, webcam, labelContainer, maxPredictions;
+
+    // // Load the image model and setup the webcam
+    // async function init() {
+    //     const modelURL = URL + "model.json";
+    //     const metadataURL = URL + "metadata.json";
+
+    //     model = await tmImage.load(modelURL, metadataURL);
+    //     maxPredictions = model.getTotalClasses();
+
+    //     console.log('model loaded')
+    // }
+
+
+    async function grade_models() {
+
+        for (const model of app.models) {
+            const accuracy = await grade_model(model.model)
+
+            console.log(accuracy)
+            model.accuracy = accuracy
+
+            app.$forceUpdate()
+        }
+
+    }
+
+
+    async function inspect_model_images(model_id) {
+        console.log('inspecting ' + model_id)
+        console.log('grading ' + model_id)
+
+        const modelURL = model_id + "model.json";
+        const metadataURL = model_id + "metadata.json";
+
+        const model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        console.log('model loaded')
+
+        const THRESHOLD = 0.5
+
+        // predict on class 1
+
+        var correct = 0
+
+        const images_1 = document.getElementsByClassName("class_1");
+        const images_1_predictions = await predict_on_each_image(model, images_1)
+        var index = 0
+        for (const p of images_1_predictions) {
+            app.class_1_images[index].prediction = p[0]
+            index++
+        }
+
+        // predict on class 2
+        const images_2 = document.getElementsByClassName("class_2");
+        const images_2_predictions = await predict_on_each_image(model, images_2)
+        var index = 0
+        for (const p of images_2_predictions) {
+            app.class_2_images[index].prediction = p[0]
+            index++
+        }
+        app.$forceUpdate()
+    }
+
+    async function grade_model(model_id) {
+
+        console.log('grading ' + model_id)
+
+        const modelURL = model_id + "model.json";
+        const metadataURL = model_id + "metadata.json";
+
+        const model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        console.log('model loaded')
+
+        const THRESHOLD = 0.5
+
+        // predict on class 1
+
+        var correct = 0
+
+        const images_1 = document.getElementsByClassName("class_1");
+        const images_1_predictions = await predict_on_each_image(model, images_1)
+
+        for (const p of images_1_predictions) {
+            if (p[0] >= 0.5) {
+                correct++
+            }
+        }
+
+        // predict on class 2
+        const images_2 = document.getElementsByClassName("class_2");
+        const images_2_predictions = await predict_on_each_image(model, images_2)
+
+        for (const p of images_2_predictions) {
+            if (p[0] < 0.5) {
+                correct++
+            }
+        }
+
+        const total_images = images_1_predictions.length + images_2_predictions.length
+
+
+        return correct / total_images
+
+    }
+
+    async function predict_on_each_image(model, images) {
+
+        const predictions = []
+
+        for (const image of images) {
+            const prediction = await model.predict(image);
+            // console.log(prediction)
+            predictions.push([prediction[0].probability.toFixed(2), prediction[1].probability.toFixed(2)])
+        }
+
+        return predictions
+    }
+</script>
