@@ -1,29 +1,37 @@
 <head>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Open Sans', sans-serif;
+        }
+        
+        h1,
+        h3 {
+            color: #506edb;
         }
         
         img {
             height: 100px;
         }
         
-        .class_1 {
-            border: red solid 1px;
+        .image {
+            display: inline-block;
+            margin: 5px;
+            text-align: center;
         }
         
-        .class_2 {
-            border: blue solid 1px;
+        .image>img {
+            display: block;
         }
         
         table,
         th,
         td {
-            border: 1px solid;
-            padding: 3px;
+            border: 3px solid #506edb;
+            padding: 10px;
+            border-collapse: collapse;
         }
     </style>
 
@@ -38,51 +46,60 @@
 
     <div id="app">
 
-        <h2>Unofficial Teachable Machine "Kaggle Competition" Grader</h2>
-        <p></p>
+        <h1>Unofficial Teachable Machine "Kaggle Competition" Grader</h1>
+        <p>Score the accuracy of many Teachable Machine models simultaneously.</p>
 
-        <p>1. Upload CSV</p>
+        <h2>1. Upload CSV</h2>
+        <p>Upload a CSV with a column <b>name</b> with the creators name, and <b>model</b> with the full url of the uploaded model e.g <i>https://teachablemachine.withgoogle.com/models/F90wNb2G9/</i></p>
         <input id="csv" type="file" accept=".csv" />
 
-        <p>2. Class 1</p>
+        <h2>2. Class 1</h2>
         <input id="class_1" type="file" multiple accept="image/*" />
         <br>
-        <span v-for="image in class_1_images">
+        <div class="image" v-for="image in class_1_images">
             <img class="class_1" v-bind:src="image.image">
-            {{image.prediction}}
-        </span>
+            <span v-if="image.prediction != null">
+                <span>{{image.prediction}}</span>
+            <span v-if="image.prediction > 0.5">✅</span>
+            <span v-else>❌</span>
+            </span>
+        </div>
 
 
 
-        <p>3. Class 2</p>
+        <h2>3. Class 2</h2>
         <input id="class_2" type="file" multiple accept="image/*" />
         <br>
-        <span v-for="image in class_2_images">
+        <div class="image" v-for="image in class_2_images">
             <img class="class_2" v-bind:src="image.image">
-            {{image.prediction}}
-        </span>
+            <span v-if="image.prediction != null">
+                <span>{{image.prediction}}</span>
+            <span v-if="image.prediction > 0.5">✅</span>
+            <span v-else>❌</span>
+            </span>
+        </div>
 
         <br>
         <h3 v-if="inspecting_model"> Inspecting {{inspecting_model.name}}'s model</h3>
 
 
-        <p>4. Grade models</p>
+        <h2>4. Grade models</h2>
         <button type="button" onclick="grade_models()">GRADE MODELS</button>
 
         <br><br>
 
         <!-- <div id="webcam-container"></div> -->
         <!-- <div id="label-container"></div> -->
-        <table>
+        <table v-if="models.length > 0">
             <tr>
-                <th>Name</th>
-                <th>Model URL</th>
+                <th>name</th>
+                <th>model</th>
                 <th>Accuracy</th>
             </tr>
             <tr v-for="model in models">
                 <td>{{model.name}}</td>
                 <td>{{model.model}}</td>
-                <td>{{model.accuracy}}</td>
+                <td v-if="model.accuracy != null">{{model.accuracy.toFixed(4)}}</td>
                 <td v-if="model.accuracy != null"><button v-on:click="inspect_model(model)">inspect</button></td>
             </tr>
         </table>
@@ -165,27 +182,6 @@
     });
 
 
-
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
-
-    // the link to your model provided by Teachable Machine export panel
-    // const URL = "https://teachablemachine.withgoogle.com/models/F90wNb2G9/";
-
-    // let model, webcam, labelContainer, maxPredictions;
-
-    // // Load the image model and setup the webcam
-    // async function init() {
-    //     const modelURL = URL + "model.json";
-    //     const metadataURL = URL + "metadata.json";
-
-    //     model = await tmImage.load(modelURL, metadataURL);
-    //     maxPredictions = model.getTotalClasses();
-
-    //     console.log('model loaded')
-    // }
-
-
     async function grade_models() {
 
         for (const model of app.models) {
@@ -203,6 +199,8 @@
     async function inspect_model_images(model_id) {
         console.log('inspecting ' + model_id)
         console.log('grading ' + model_id)
+
+        clear_inspection_predictions()
 
         const modelURL = model_id + "model.json";
         const metadataURL = model_id + "metadata.json";
@@ -231,10 +229,21 @@
         const images_2_predictions = await predict_on_each_image(model, images_2)
         var index = 0
         for (const p of images_2_predictions) {
-            app.class_2_images[index].prediction = p[0]
+            app.class_2_images[index].prediction = p[1]
             index++
         }
         app.$forceUpdate()
+    }
+
+
+    function clear_inspection_predictions() {
+        for (const img of app.class_2_images) {
+            img.prediction = null
+        }
+
+        for (const img of app.class_1_images) {
+            img.prediction = null
+        }
     }
 
     async function grade_model(model_id) {
@@ -259,7 +268,7 @@
         const images_1_predictions = await predict_on_each_image(model, images_1)
 
         for (const p of images_1_predictions) {
-            if (p[0] >= 0.5) {
+            if (p[0] >= THRESHOLD) {
                 correct++
             }
         }
@@ -269,7 +278,7 @@
         const images_2_predictions = await predict_on_each_image(model, images_2)
 
         for (const p of images_2_predictions) {
-            if (p[0] < 0.5) {
+            if (p[0] < THRESHOLD) {
                 correct++
             }
         }
